@@ -73,8 +73,9 @@
   <section id="filesPane" class="card" hidden>
     <div class="row" style="justify-content:space-between;margin-bottom:10px">
       <h2 style="margin:0">Project files</h2>
-      <button id="refresh" type="button" style="flex:none">Refresh</button>
+      <div class="row" style="flex:none;flex-wrap:nowrap"><button id="dlAll" type="button">Download all (zip)</button><button id="refresh" type="button">Refresh</button></div>
     </div>
+    <p class="muted small" style="margin-bottom:10px">Files are deleted automatically 7 days after they're saved. Download anything you want to keep.</p>
     <p id="filesEmpty" class="muted" hidden>Nothing saved yet.</p>
     <div id="files" class="files"></div>
     <button id="more" type="button" style="margin-top:12px" hidden>Show more</button>

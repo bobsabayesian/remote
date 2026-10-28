@@ -1,3 +1,4 @@
+import { zipFiles, saveBlob } from "./zip.js";
 import { $, api, normCode, fmtCode, fmtDuration, fmtBytes, remember, connect, getIceServers, toast } from "./common.js";
 
 const code = normCode(location.hash);
@@ -287,14 +288,36 @@ function drawFiles() {
   }
 }
 
+async function downloadZip(entries, filename, button) {
+  const label = button.textContent;
+  button.disabled = true;
+  try {
+    const blob = await zipFiles(entries, (i, n) => (button.textContent = i < n ? `Zipping ${i + 1}/${n}…` : label));
+    saveBlob(blob, filename);
+  } catch (e) {
+    toast(e.message, "err");
+  } finally {
+    button.textContent = label;
+    button.disabled = false;
+  }
+}
+
+$("dlAll").onclick = () => {
+  const entries = items.flatMap((it) => (it.kind === "sequence" ? it.frames : [it.name])).map((name) => ({ name, url: fileUrl(name) }));
+  if (!entries.length) return toast("Nothing to download yet");
+  downloadZip(entries, `${project.slug}.zip`, $("dlAll"));
+};
+
 const viewer = $("viewer");
 let playTimer = 0;
 function openViewer(it) {
   const body = $("viewBody");
   body.replaceChildren();
+  $("viewDl").onclick = null;
+  $("viewDl").textContent = "Download";
   $("viewName").textContent = it.name;
   const dl = $("viewDl");
-  dl.hidden = it.kind === "sequence";
+  dl.hidden = false;
   if (it.kind === "sequence") {
     const img = document.createElement("img");
     const bar = document.createElement("div");
@@ -326,6 +349,13 @@ function openViewer(it) {
     range.oninput = () => show(Number(range.value));
     bar.append(play, range, label);
     body.append(img, bar);
+    dl.removeAttribute("download");
+    dl.href = "#";
+    dl.textContent = "Download frames (zip)";
+    dl.onclick = (e) => {
+      e.preventDefault();
+      downloadZip(it.frames.map((name) => ({ name, url: fileUrl(name) })), `${it.name}.zip`, dl);
+    };
     show(0);
   } else if (it.kind === "video") {
     const v = document.createElement("video");

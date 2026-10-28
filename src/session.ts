@@ -4,7 +4,16 @@ export interface Project {
   name: string;
   slug: string;
   createdAt: number;
+  lastActive?: number;
 }
+
+interface SessionEnv {
+  FILES: R2Bucket;
+  RETENTION_DAYS?: string;
+}
+
+const DAY = 86_400_000;
+const HOUR = 3_600_000;
 
 interface Peer {
   id: string;
@@ -17,9 +26,9 @@ interface Peer {
  * number of controllers. Camera -> all controllers, controller -> camera,
  * unless a message carries an explicit `to` peer id.
  */
-export class Session extends DurableObject {
-  constructor(ctx: DurableObjectState, env: unknown) {
-    super(ctx, env as never);
+export class Session extends DurableObject<SessionEnv> {
+  constructor(ctx: DurableObjectState, env: SessionEnv) {
+    super(ctx, env);
     ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair("ping", "pong"));
   }
 
@@ -29,14 +38,20 @@ export class Session extends DurableObject {
     if (url.pathname === "/init" && req.method === "POST") {
       if (await this.ctx.storage.get("project")) return new Response("exists", { status: 409 });
       const { name, slug } = (await req.json()) as { name: string; slug: string };
-      const project: Project = { name, slug, createdAt: Date.now() };
+      const project: Project = { name, slug, createdAt: Date.now(), lastActive: Date.now() };
       await this.ctx.storage.put("project", project);
+      await this.ctx.storage.setAlarm(Date.now() + this.sweepEvery());
       return Response.json(project);
     }
 
     if (url.pathname === "/info") {
       const project = await this.ctx.storage.get<Project>("project");
-      return project ? Response.json(project) : new Response("not found", { status: 404 });
+      if (!project) return new Response("not found", { status: 404 });
+      if (Date.now() - (project.lastActive ?? 0) > HOUR) {
+        project.lastActive = Date.now();
+        await this.ctx.storage.put("project", project);
+      }
+      return Response.json(project);
     }
 
     if (req.headers.get("Upgrade") !== "websocket") return new Response("expected websocket", { status: 426 });
@@ -59,6 +74,46 @@ export class Session extends DurableObject {
     this.broadcast({ type: "peer-joined", id, role }, server);
 
     return new Response(null, { status: 101, webSocket: client });
+  }
+
+  /**
+   * Retention: files are deleted RETENTION_DAYS (default 7) after upload. Once
+   * the folder is empty and the session has been idle that long, the project
+   * itself is removed and its code stops working.
+   */
+  async alarm() {
+    const project = await this.ctx.storage.get<Project>("project");
+    if (!project) return;
+    const cutoff = Date.now() - this.retention();
+    const prefix = `remote/${project.slug}/`;
+    const metaKey = prefix + ".project.json";
+    let remaining = 0;
+    let cursor: string | undefined;
+    do {
+      const page = await this.env.FILES.list({ prefix, cursor, limit: 1000 });
+      const expired = page.objects.filter((o) => o.key !== metaKey && o.uploaded.getTime() < cutoff).map((o) => o.key);
+      if (expired.length) await this.env.FILES.delete(expired);
+      remaining += page.objects.length - expired.length - (page.objects.some((o) => o.key === metaKey) ? 1 : 0);
+      cursor = page.truncated ? page.cursor : undefined;
+    } while (cursor);
+
+    if (remaining === 0 && (project.lastActive ?? 0) < cutoff) {
+      await this.env.FILES.delete(metaKey);
+      for (const w of this.ctx.getWebSockets()) w.close(1000, "session expired");
+      await this.ctx.storage.deleteAlarm();
+      await this.ctx.storage.deleteAll();
+      return;
+    }
+    await this.ctx.storage.setAlarm(Date.now() + this.sweepEvery());
+  }
+
+  private retention(): number {
+    const days = Number(this.env.RETENTION_DAYS);
+    return (days > 0 ? days : 7) * DAY;
+  }
+
+  private sweepEvery(): number {
+    return Math.min(DAY, this.retention());
   }
 
   webSocketMessage(ws: WebSocket, data: string | ArrayBuffer) {

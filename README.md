@@ -23,6 +23,12 @@ npx wrangler secret put TURN_KEY_ID
 npx wrangler secret put TURN_API_TOKEN
 ```
 
+## Retention & downloads
+
+Each session's Durable Object runs a daily alarm that deletes files more than 7 days after upload (`RETENTION_DAYS` var overrides it). When a project's folder is empty and it's been idle 7 days, the project and its code are removed and the name is freed. No cron or R2 lifecycle rule needed.
+
+The Files tab downloads single files, a whole timelapse as a zip, or the entire project as a zip (zipped in the browser, 4 GB limit).
+
 ## How it works
 
 - **Session code**: 8 characters (`ABCD-EFGH`), the only credential. Anyone with it can view the camera and the files, so treat it like a password. Rejoin any time from the home page, using the code.
