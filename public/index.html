@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Remote Camera</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%234da3ff'/%3E%3Ccircle cx='16' cy='16' r='7' fill='none' stroke='%2304111f' stroke-width='3'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<main>
+  <header style="padding-top:12px">
+    <h1>Remote Camera</h1>
+    <p class="muted">Turn any device into a camera, then run it from your phone. Photos, video and timelapse save straight to your project folder.</p>
+  </header>
+
+  <section class="card">
+    <h2>1. On the device that will be the camera</h2>
+    <form id="newForm" class="field">
+      <label class="label" for="name">Project name</label>
+      <input id="name" type="text" maxlength="80" placeholder="e.g. Garden build (leave blank to use the session code)" autocomplete="off">
+      <button class="primary big" type="submit">Set up camera</button>
+      <p id="newErr" class="error" role="alert"></p>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>2. On the device you'll control from</h2>
+    <p class="muted small" style="margin-bottom:10px">Scan the QR code shown on the camera, or enter the session code. Also use this to come back to an older project.</p>
+    <form id="joinForm" class="field">
+      <label class="label" for="code">Session code</label>
+      <input id="code" type="text" maxlength="12" placeholder="ABCD-EFGH" autocomplete="off" autocapitalize="characters" spellcheck="false">
+      <div class="row">
+        <button class="primary" type="submit" data-role="control">Open remote control</button>
+        <button type="submit" data-role="camera">Use this device as camera</button>
+      </div>
+      <p id="joinErr" class="error" role="alert"></p>
+    </form>
+  </section>
+
+  <section class="card" id="recentCard" hidden>
+    <h2>Recent on this device</h2>
+    <div id="recent" class="recent"></div>
+  </section>
+</main>
+
+<script type="module">
+import { $, api, normCode, fmtCode, recent, remember } from "/js/common.js";
+
+$("newForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  $("newErr").textContent = "";
+  const btn = e.submitter;
+  btn.disabled = true;
+  try {
+    const p = await api("/api/projects", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: $("name").value }),
+    });
+    remember(p);
+    location.href = `/camera.html#${p.code}`;
+  } catch (err) {
+    $("newErr").textContent = err.message;
+    btn.disabled = false;
+  }
+});
+
+$("joinForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  $("joinErr").textContent = "";
+  const code = normCode($("code").value);
+  const role = e.submitter?.dataset.role || "control";
+  try {
+    const info = await api(`/api/s/${code}/info`);
+    remember(info);
+    location.href = `/${role}.html#${info.code}`;
+  } catch (err) {
+    $("joinErr").textContent = err.message;
+  }
+});
+
+const list = recent();
+if (list.length) {
+  $("recentCard").hidden = false;
+  for (const r of list) {
+    const b = document.createElement("button");
+    b.innerHTML = "<span></span><span class='muted'></span>";
+    b.children[0].textContent = r.name;
+    b.children[1].textContent = fmtCode(r.code);
+    b.onclick = () => ($("code").value = fmtCode(r.code), $("code").focus());
+    $("recent").append(b);
+  }
+}
+</script>
+</body>
+</html>

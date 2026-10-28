@@ -1,0 +1,12 @@
+{
+  "name": "remote",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-09-01",
+  "assets": { "directory": "./public", "binding": "ASSETS" },
+  "durable_objects": {
+    "bindings": [{ "name": "SESSIONS", "class_name": "Session" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Session"] }],
+  "r2_buckets": [{ "binding": "FILES", "bucket_name": "project-files" }],
+  "routes": [{ "pattern": "remote.bobsabayesian.io", "custom_domain": true }]
+}

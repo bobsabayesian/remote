@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Control · Remote Camera</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%234da3ff'/%3E%3Ccircle cx='16' cy='16' r='7' fill='none' stroke='%2304111f' stroke-width='3'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<div class="top">
+  <a href="/">← Remote Camera</a>
+  <div class="pills">
+    <span id="connPill" class="pill">Connecting…</span>
+    <span id="camPill" class="pill">Camera offline</span>
+  </div>
+</div>
+<main>
+  <div>
+    <h1 id="projName">Remote control</h1>
+    <p class="muted small"><code id="folder"></code> · code <b id="code"></b></p>
+  </div>
+
+  <div class="tabs" role="tablist">
+    <button role="tab" id="tabLive" aria-selected="true">Live</button>
+    <button role="tab" id="tabFiles" aria-selected="false">Files</button>
+  </div>
+
+  <div id="live" class="field" style="gap:14px">
+    <div class="video">
+      <video id="remote" playsinline muted autoplay></video>
+      <div id="idle" class="overlay"><span id="idleMsg">Waiting for the camera…</span></div>
+      <div class="badges">
+        <span id="recBadge" class="pill rec" hidden>REC <span id="recTime">0:00</span></span>
+        <span id="tlBadge" class="pill on" hidden>Timelapse <span id="tlCount">0</span></span>
+      </div>
+    </div>
+
+    <section class="card field">
+      <div class="row">
+        <button id="photo" class="primary big" type="button" disabled>📷 Photo</button>
+        <button id="rec" class="big" type="button" disabled>● Record video</button>
+      </div>
+      <button id="flip" type="button" disabled>Switch front / rear camera</button>
+    </section>
+
+    <section class="card field">
+      <h2>Timelapse</h2>
+      <div class="chips" id="presets"></div>
+      <div class="row">
+        <div class="field" style="flex:1 1 40%">
+          <label class="label" for="every">Take a photo every</label>
+          <input id="every" type="number" inputmode="decimal" min="1" step="any" value="10">
+        </div>
+        <div class="field" style="flex:1 1 40%">
+          <label class="label" for="unit">Unit</label>
+          <select id="unit"><option value="1">seconds</option><option value="60">minutes</option><option value="3600">hours</option></select>
+        </div>
+      </div>
+      <button id="tl" class="big" type="button" disabled>Start timelapse</button>
+      <p id="tlHint" class="muted small"></p>
+    </section>
+
+    <section class="card">
+      <div class="stats">
+        <div class="stat"><span class="label">Camera</span><b id="sRes">–</b></div>
+        <div class="stat"><span class="label">Uploading</span><b id="sPending">0</b></div>
+        <div class="stat"><span class="label">Saved</span><b id="sSaved">0</b></div>
+      </div>
+    </section>
+  </div>
+
+  <section id="filesPane" class="card" hidden>
+    <div class="row" style="justify-content:space-between;margin-bottom:10px">
+      <h2 style="margin:0">Project files</h2>
+      <button id="refresh" type="button" style="flex:none">Refresh</button>
+    </div>
+    <p id="filesEmpty" class="muted" hidden>Nothing saved yet.</p>
+    <div id="files" class="files"></div>
+    <button id="more" type="button" style="margin-top:12px" hidden>Show more</button>
+  </section>
+</main>
+
+<dialog id="viewer">
+  <div id="viewBody"></div>
+  <div class="bar">
+    <span id="viewName" class="muted small" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
+    <a id="viewDl" href="#" download>Download</a>
+    <button id="viewClose" type="button">Close</button>
+  </div>
+</dialog>
+
+<script type="module" src="/js/control.js"></script>
+</body>
+</html>
