@@ -17,8 +17,7 @@
   <section class="card">
     <h2>1. On the device that will be the camera</h2>
     <form id="newForm" class="field">
-      <label class="label" for="name">Project name</label>
-      <input id="name" type="text" maxlength="80" placeholder="e.g. Garden build (leave blank to use the session code)" autocomplete="off">
+      <p class="muted small">You'll get a session code and QR code. Name the project later from the remote control.</p>
       <button class="primary big" type="submit">Set up camera</button>
       <p id="newErr" class="error" role="alert"></p>
     </form>
@@ -56,7 +55,7 @@ $("newForm").addEventListener("submit", async (e) => {
     const p = await api("/api/projects", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ name: $("name").value }),
+      body: "{}",
     });
     remember(p);
     location.href = `/camera.html#${p.code}`;

@@ -77,12 +77,16 @@ async function handle(m) {
       render();
       break;
     case "renamed":
-      applyName(m.name);
+      applyName(m.name, m.folder);
+      break;
+    case "locked":
+      lockName();
       break;
     case "info":
       toast(m.message);
       break;
     case "saved":
+      lockName();
       toast(`Saved ${m.name}`);
       flash(`Saved ${m.name}`);
       if (!$("filesPane").hidden) loadFiles();
@@ -215,8 +219,17 @@ document.addEventListener("keydown", (e) => e.key === "Escape" && stage.classLis
 
 // ---- rename (operator only; display name, folder stays) ----------------------------------
 
-function applyName(name) {
+function lockName() {
+  $("renameBtn").hidden = true;
+  $("renameForm").hidden = true;
+  $("folderNote").hidden = true;
+  $("titleRow").hidden = false;
+}
+if (project.locked) lockName();
+
+function applyName(name, folder) {
   project.name = name;
+  if (folder) $("folder").textContent = folder + "/";
   $("projName").textContent = name;
   document.title = `${name} · Control`;
   remember(project);
@@ -241,11 +254,12 @@ $("renameForm").onsubmit = async (e) => {
   if (!name) return;
   try {
     const r = await api(`/api/s/${code}/rename`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name }) });
-    applyName(r.name);
+    applyName(r.name, r.folder);
     $("folderNote").hidden = true;
     toast("Renamed");
   } catch (err) {
     toast(err.message, "err");
+    if (/already been saved/.test(err.message)) lockName();
   }
 };
 

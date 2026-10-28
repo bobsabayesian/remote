@@ -51,12 +51,19 @@ async function route(req: Request, env: Env, url: URL): Promise<Response> {
   const stub = env.SESSIONS.get(env.SESSIONS.idFromName(code));
   const infoRes = await stub.fetch("https://session/info");
   if (!infoRes.ok) throw new HttpError(404, "Unknown session code");
-  const project = (await infoRes.json()) as Project;
-  const prefix = `${ROOT}/${project.slug}/`;
+  let project = (await infoRes.json()) as Project;
+  let prefix = `${ROOT}/${project.slug}/`;
+
+  // First upload freezes the name/folder. Locking in the DO and re-reading the slug closes the race with a rename.
+  const startsUpload = (req.method === "PUT" && action === "photo") || (req.method === "POST" && action === "mpu" && rest === "start");
+  if (startsUpload && !project.locked) {
+    project = (await (await stub.fetch("https://session/lock", { method: "POST" })).json()) as Project;
+    prefix = `${ROOT}/${project.slug}/`;
+  }
 
   switch (`${req.method} ${action}`) {
     case "GET info":
-      return Response.json({ code, name: project.name, slug: project.slug, folder: prefix.slice(0, -1) });
+      return Response.json({ code, name: project.name, slug: project.slug, folder: prefix.slice(0, -1), locked: !!project.locked });
     case "POST rename":
       return rename(req, env, stub, project, prefix);
     case "GET ws":
@@ -132,16 +139,34 @@ function normalizeCode(s: string): string {
   return s.toUpperCase().replace(/[^A-Z0-9]/g, "");
 }
 
-// Display name only: the folder (slug) stays put so existing files and links keep working.
+// Renaming moves the folder too, so it is only allowed before anything has been saved.
 async function rename(req: Request, env: Env, stub: DurableObjectStub<Session>, project: Project, prefix: string): Promise<Response> {
   const body = (await req.json().catch(() => ({}))) as { name?: string };
   const name = (body.name ?? "").trim().slice(0, 80);
   if (!name) throw new HttpError(400, "Name can't be empty");
-  await stub.fetch("https://session/rename", { method: "POST", body: JSON.stringify({ name }) });
-  await env.FILES.put(`${prefix}.project.json`, JSON.stringify({ name, createdAt: project.createdAt }), {
+  const slug = slugify(name);
+  if (!slug) throw new HttpError(400, "Use at least one letter or number in the name");
+
+  const locked = new HttpError(409, "Files have already been saved, so the project can't be renamed any more");
+  if (project.locked) throw locked;
+  const existing = await env.FILES.list({ prefix, limit: 5 });
+  if (existing.objects.some((o) => !o.key.endsWith("/.project.json"))) {
+    await stub.fetch("https://session/lock", { method: "POST" }); // sessions that predate the lock flag
+    throw locked;
+  }
+
+  const newPrefix = `${ROOT}/${slug}/`;
+  if (slug !== project.slug && (await env.FILES.head(`${newPrefix}.project.json`))) {
+    throw new HttpError(409, `A project called "${name}" already exists. Pick another name.`);
+  }
+  const res = await stub.fetch("https://session/rename", { method: "POST", body: JSON.stringify({ name, slug }) });
+  if (res.status === 409) throw locked;
+
+  await env.FILES.put(`${newPrefix}.project.json`, JSON.stringify({ name, createdAt: project.createdAt }), {
     httpMetadata: { contentType: "application/json" },
   });
-  return Response.json({ name });
+  if (slug !== project.slug) await env.FILES.delete(`${prefix}.project.json`);
+  return Response.json({ name, folder: newPrefix.slice(0, -1) });
 }
 
 // ---- uploads -----------------------------------------------------------

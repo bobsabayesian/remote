@@ -110,6 +110,7 @@ async function handle(m) {
     case "renamed":
       project.name = m.name;
       $("projName").textContent = m.name;
+      $("folder").textContent = m.folder + "/";
       document.title = `${m.name} · Camera`;
       remember(project);
       break;

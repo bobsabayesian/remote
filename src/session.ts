@@ -5,6 +5,8 @@ export interface Project {
   slug: string;
   createdAt: number;
   lastActive?: number;
+  /** Set when the first photo/video upload begins; the name/folder can no longer change. */
+  locked?: boolean;
 }
 
 interface SessionEnv {
@@ -47,10 +49,23 @@ export class Session extends DurableObject<SessionEnv> {
     if (url.pathname === "/rename" && req.method === "POST") {
       const project = await this.ctx.storage.get<Project>("project");
       if (!project) return new Response("not found", { status: 404 });
-      const { name } = (await req.json()) as { name: string };
+      if (project.locked) return new Response("locked", { status: 409 });
+      const { name, slug } = (await req.json()) as { name: string; slug: string };
       project.name = name;
+      project.slug = slug;
       await this.ctx.storage.put("project", project);
-      this.broadcast({ type: "renamed", name });
+      this.broadcast({ type: "renamed", name, folder: `remote/${slug}` });
+      return Response.json(project);
+    }
+
+    if (url.pathname === "/lock" && req.method === "POST") {
+      const project = await this.ctx.storage.get<Project>("project");
+      if (!project) return new Response("not found", { status: 404 });
+      if (!project.locked) {
+        project.locked = true;
+        await this.ctx.storage.put("project", project);
+        this.broadcast({ type: "locked" });
+      }
       return Response.json(project);
     }
 
