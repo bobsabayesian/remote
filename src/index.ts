@@ -57,6 +57,8 @@ async function route(req: Request, env: Env, url: URL): Promise<Response> {
   switch (`${req.method} ${action}`) {
     case "GET info":
       return Response.json({ code, name: project.name, slug: project.slug, folder: prefix.slice(0, -1) });
+    case "POST rename":
+      return rename(req, env, stub, project, prefix);
     case "GET ws":
       return stub.fetch(req);
     case "GET ice":
@@ -128,6 +130,18 @@ function randomCode(): string {
 
 function normalizeCode(s: string): string {
   return s.toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+
+// Display name only: the folder (slug) stays put so existing files and links keep working.
+async function rename(req: Request, env: Env, stub: DurableObjectStub<Session>, project: Project, prefix: string): Promise<Response> {
+  const body = (await req.json().catch(() => ({}))) as { name?: string };
+  const name = (body.name ?? "").trim().slice(0, 80);
+  if (!name) throw new HttpError(400, "Name can't be empty");
+  await stub.fetch("https://session/rename", { method: "POST", body: JSON.stringify({ name }) });
+  await env.FILES.put(`${prefix}.project.json`, JSON.stringify({ name, createdAt: project.createdAt }), {
+    httpMetadata: { contentType: "application/json" },
+  });
+  return Response.json({ name });
 }
 
 // ---- uploads -----------------------------------------------------------

@@ -8,6 +8,14 @@
 <link rel="stylesheet" href="/app.css">
 </head>
 <body>
+<div id="ask" class="ask" role="alertdialog" aria-labelledby="askTitle" hidden>
+  <div class="ask-card">
+    <h2 id="askTitle">📷 Camera requested</h2>
+    <p>The remote operator is asking you to turn on the camera.</p>
+    <button id="askStart" class="primary big" type="button">Start camera</button>
+    <button id="askDismiss" type="button">Not now</button>
+  </div>
+</div>
 <div class="top">
   <a href="/">← Remote Camera</a>
   <div class="pills">

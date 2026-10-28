@@ -76,13 +76,21 @@ async function handle(m) {
       status = m;
       render();
       break;
+    case "renamed":
+      applyName(m.name);
+      break;
+    case "info":
+      toast(m.message);
+      break;
     case "saved":
       toast(`Saved ${m.name}`);
+      flash(`Saved ${m.name}`);
       if (!$("filesPane").hidden) loadFiles();
       else filesStale = true;
       break;
     case "error":
       toast(m.message, "err");
+      flash(m.message);
       break;
   }
 }
@@ -114,9 +122,20 @@ async function answer(m) {
 // ---- commands ----------------------------------------------------------------
 
 const send = (msg) => conn.send(msg);
-$("photo").onclick = () => send({ type: "photo" });
+const doPhoto = () => send({ type: "photo" });
+const doRec = () => send({ type: status?.recording ? "rec-stop" : "rec-start" });
+$("photo").onclick = doPhoto;
+$("fPhoto").onclick = doPhoto;
+$("fRec").onclick = doRec;
+$("ask").onclick = () => {
+  send({ type: "request-start" });
+  $("ask").disabled = true;
+  askCooling = true;
+  setTimeout(() => ((askCooling = false), render()), 8000); // brief cooldown so the camera isn't spammed
+  toast("Asked the camera device to turn on");
+};
 $("flip").onclick = () => send({ type: "flip" });
-$("rec").onclick = () => send({ type: status?.recording ? "rec-stop" : "rec-start" });
+$("rec").onclick = doRec;
 $("tl").onclick = () => {
   if (status?.timelapse) return send({ type: "tl-stop" });
   const sec = intervalSeconds();
@@ -158,6 +177,78 @@ $("every").addEventListener("input", updateHint);
 $("unit").addEventListener("change", updateHint);
 updateHint();
 
+// ---- fullscreen & composition grid ----------------------------------------------------
+
+const stage = $("stage");
+let flashTimer = 0;
+let askCooling = false;
+function flash(msg) {
+  $("flash").innerHTML = "<span></span>";
+  $("flash").firstChild.textContent = msg;
+  clearTimeout(flashTimer);
+  flashTimer = setTimeout(() => $("flash").replaceChildren(), 2500);
+}
+function setGrid(on) {
+  $("grid").hidden = !on;
+  $("gridBtn").setAttribute("aria-pressed", String(on));
+  try { localStorage.setItem("remote.grid", on ? "1" : ""); } catch {}
+}
+$("gridBtn").onclick = $("fGrid").onclick = () => setGrid($("grid").hidden);
+try { setGrid(!!localStorage.getItem("remote.grid")); } catch {}
+
+async function enterFull() {
+  stage.classList.add("full"); // CSS fallback for browsers without element fullscreen (iPhone Safari)
+  try { await (stage.requestFullscreen || stage.webkitRequestFullscreen)?.call(stage, { navigationUI: "hide" }); } catch {}
+}
+async function exitFull() {
+  stage.classList.remove("full");
+  if (document.fullscreenElement || document.webkitFullscreenElement) await (document.exitFullscreen || document.webkitExitFullscreen).call(document).catch?.(() => {});
+}
+$("fullBtn").onclick = enterFull;
+$("fExit").onclick = exitFull;
+for (const ev of ["fullscreenchange", "webkitfullscreenchange"]) {
+  document.addEventListener(ev, () => {
+    if (!document.fullscreenElement && !document.webkitFullscreenElement) stage.classList.remove("full");
+  });
+}
+document.addEventListener("keydown", (e) => e.key === "Escape" && stage.classList.contains("full") && exitFull());
+
+// ---- rename (operator only; display name, folder stays) ----------------------------------
+
+function applyName(name) {
+  project.name = name;
+  $("projName").textContent = name;
+  document.title = `${name} · Control`;
+  remember(project);
+  $("renameForm").hidden = true;
+  $("titleRow").hidden = false;
+}
+$("renameBtn").onclick = () => {
+  $("titleRow").hidden = true;
+  $("renameForm").hidden = false;
+  $("folderNote").hidden = false;
+  $("renameInput").value = project.name;
+  $("renameInput").select();
+};
+$("renameCancel").onclick = () => {
+  $("renameForm").hidden = true;
+  $("titleRow").hidden = false;
+  $("folderNote").hidden = true;
+};
+$("renameForm").onsubmit = async (e) => {
+  e.preventDefault();
+  const name = $("renameInput").value.trim();
+  if (!name) return;
+  try {
+    const r = await api(`/api/s/${code}/rename`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name }) });
+    applyName(r.name);
+    $("folderNote").hidden = true;
+    toast("Renamed");
+  } catch (err) {
+    toast(err.message, "err");
+  }
+};
+
 // ---- rendering ------------------------------------------------------------------
 
 function render() {
@@ -178,6 +269,12 @@ function render() {
         : "Connecting live view… (controls still work if this stays blank)";
 
   $("photo").disabled = !ready;
+  $("fPhoto").disabled = !ready;
+  $("fRec").disabled = !ready && !status?.recording;
+  $("fRec").textContent = status?.recording ? "■ Stop" : "● Record";
+  $("fRec").classList.toggle("danger", !!status?.recording);
+  $("ask").hidden = !(wsOpen && camOnline && !streaming);
+  if (!$("ask").hidden && !askCooling) $("ask").disabled = false;
   $("flip").disabled = !ready || !!status?.recording;
   $("rec").disabled = !ready && !status?.recording;
   $("rec").textContent = status?.recording ? "■ Stop recording" : "● Record video";

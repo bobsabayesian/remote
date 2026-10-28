@@ -102,6 +102,17 @@ async function handle(m) {
     case "ice":
       await pcs.get(m.from)?.addIceCandidate(m.candidate).catch(() => {});
       break;
+    case "request-start":
+      if (stream) break;
+      showAsk();
+      conn.send({ type: "info", to: m.from, message: "Prompt is showing on the camera device" });
+      break;
+    case "renamed":
+      project.name = m.name;
+      $("projName").textContent = m.name;
+      document.title = `${m.name} · Camera`;
+      remember(project);
+      break;
     case "get-status":
       sendStatus(m.from);
       break;
@@ -200,6 +211,7 @@ async function startStream() {
     if (sender) await sender.replaceTrack(track);
   }
   for (const id of controllers) if (!pcs.has(id)) await offerTo(id);
+  hideAsk();
   render();
   sendStatus();
 }
@@ -210,7 +222,7 @@ async function restartStream() {
   await startStream();
 }
 
-$("start").onclick = async () => {
+async function toggleCamera() {
   $("camErr").textContent = "";
   try {
     if (stream) {
@@ -230,7 +242,38 @@ $("start").onclick = async () => {
   } catch (e) {
     $("camErr").textContent = e.name === "NotAllowedError" ? "Camera access was blocked. Allow it in the browser settings and try again." : e.message;
   }
+}
+$("start").onclick = toggleCamera;
+
+// The operator can ask for the camera, but browsers only grant access after a tap on this device.
+let titleFlash = 0;
+function showAsk() {
+  $("ask").hidden = false;
+  navigator.vibrate?.([300, 150, 300]);
+  try {
+    const ctx = new AudioContext();
+    const osc = ctx.createOscillator();
+    osc.connect(ctx.destination);
+    osc.frequency.value = 880;
+    osc.start();
+    osc.stop(ctx.currentTime + 0.25);
+  } catch {}
+  clearInterval(titleFlash);
+  const orig = document.title;
+  let on = false;
+  titleFlash = setInterval(() => (document.title = (on = !on) ? "📷 Start the camera!" : orig), 1000);
+  $("ask").dataset.title = orig;
+}
+function hideAsk() {
+  $("ask").hidden = true;
+  clearInterval(titleFlash);
+  if ($("ask").dataset.title) document.title = $("ask").dataset.title;
+}
+$("askStart").onclick = async () => {
+  hideAsk();
+  if (!stream) await toggleCamera();
 };
+$("askDismiss").onclick = hideAsk;
 for (const id of ["facing", "res", "audio"]) {
   $(id).addEventListener("change", () => restartStream().catch((e) => ($("camErr").textContent = e.message)));
 }

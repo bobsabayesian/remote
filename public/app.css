@@ -118,3 +118,23 @@ dialog input[type="range"] { flex: 1; }
 .recent button { text-align: left; display: flex; justify-content: space-between; gap: 10px; }
 .error { color: var(--rec); min-height: 1.4em; }
 [hidden] { display: none !important; }
+
+.video .tools { position: absolute; top: 10px; right: 10px; display: flex; gap: 6px; }
+.video .tools button, .fullbar button { min-height: 36px; padding: 4px 12px; font-size: 0.85rem; background: rgba(0, 0, 0, 0.6); color: #fff; border-color: rgba(255, 255, 255, 0.25); }
+.video .grid { position: absolute; inset: 0; pointer-events: none; --l: rgba(255, 255, 255, 0.55);
+  background:
+    linear-gradient(to right, transparent calc(33.333% - 0.5px), var(--l) calc(33.333% - 0.5px), var(--l) calc(33.333% + 0.5px), transparent calc(33.333% + 0.5px), transparent calc(66.666% - 0.5px), var(--l) calc(66.666% - 0.5px), var(--l) calc(66.666% + 0.5px), transparent calc(66.666% + 0.5px)),
+    linear-gradient(to bottom, transparent calc(33.333% - 0.5px), var(--l) calc(33.333% - 0.5px), var(--l) calc(33.333% + 0.5px), transparent calc(33.333% + 0.5px), transparent calc(66.666% - 0.5px), var(--l) calc(66.666% - 0.5px), var(--l) calc(66.666% + 0.5px), transparent calc(66.666% + 0.5px)); }
+.video .flash { position: absolute; left: 0; right: 0; top: 56px; text-align: center; pointer-events: none; }
+.video .flash span { background: rgba(0, 0, 0, 0.7); color: #fff; padding: 6px 14px; border-radius: 99px; font-size: 0.9rem; }
+.fullbar { display: none; }
+.video.full, .video:fullscreen { position: fixed; inset: 0; z-index: 30; width: 100vw; height: 100dvh; aspect-ratio: auto; border-radius: 0; }
+.video.full .fullbar, .video:fullscreen .fullbar { display: flex; position: absolute; left: 0; right: 0; bottom: max(16px, env(safe-area-inset-bottom)); justify-content: center; gap: 10px; padding: 0 16px; flex-wrap: wrap; }
+.fullbar button.danger { background: var(--rec); border-color: transparent; }
+
+.ask { position: fixed; inset: 0; z-index: 40; background: rgba(0, 0, 0, 0.8); display: grid; place-items: center; padding: 20px; }
+.ask-card { background: var(--panel); border: 2px solid var(--accent); border-radius: var(--radius); padding: 24px; max-width: 420px; width: 100%; display: grid; gap: 12px; text-align: center; }
+.ask-card h2 { font-size: 1.4rem; margin: 0; }
+.title-row { display: flex; gap: 10px; align-items: center; }
+.title-row h1 { flex: 0 1 auto; overflow-wrap: anywhere; }
+.title-row button { min-height: 34px; padding: 2px 12px; font-size: 0.85rem; font-weight: 500; }

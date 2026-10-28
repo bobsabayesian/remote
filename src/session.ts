@@ -44,6 +44,16 @@ export class Session extends DurableObject<SessionEnv> {
       return Response.json(project);
     }
 
+    if (url.pathname === "/rename" && req.method === "POST") {
+      const project = await this.ctx.storage.get<Project>("project");
+      if (!project) return new Response("not found", { status: 404 });
+      const { name } = (await req.json()) as { name: string };
+      project.name = name;
+      await this.ctx.storage.put("project", project);
+      this.broadcast({ type: "renamed", name });
+      return Response.json(project);
+    }
+
     if (url.pathname === "/info") {
       const project = await this.ctx.storage.get<Project>("project");
       if (!project) return new Response("not found", { status: 404 });

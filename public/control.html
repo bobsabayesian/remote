@@ -17,8 +17,17 @@
 </div>
 <main>
   <div>
-    <h1 id="projName">Remote control</h1>
+    <div id="titleRow" class="title-row">
+      <h1 id="projName">Remote control</h1>
+      <button id="renameBtn" type="button">Rename</button>
+    </div>
+    <form id="renameForm" class="row" hidden>
+      <input id="renameInput" type="text" maxlength="80" aria-label="Project name" style="flex:1 1 200px">
+      <button class="primary" type="submit" style="flex:none">Save</button>
+      <button id="renameCancel" type="button" style="flex:none">Cancel</button>
+    </form>
     <p class="muted small"><code id="folder"></code> · code <b id="code"></b></p>
+    <p class="muted small" id="folderNote" hidden>Renaming changes the display name only; files stay in the original folder.</p>
   </div>
 
   <div class="tabs" role="tablist">
@@ -27,12 +36,24 @@
   </div>
 
   <div id="live" class="field" style="gap:14px">
-    <div class="video">
+    <div class="video" id="stage">
       <video id="remote" playsinline muted autoplay></video>
+      <div id="grid" class="grid" hidden></div>
       <div id="idle" class="overlay"><span id="idleMsg">Waiting for the camera…</span></div>
       <div class="badges">
         <span id="recBadge" class="pill rec" hidden>REC <span id="recTime">0:00</span></span>
         <span id="tlBadge" class="pill on" hidden>Timelapse <span id="tlCount">0</span></span>
+      </div>
+      <div class="tools">
+        <button id="gridBtn" type="button" aria-pressed="false">Grid</button>
+        <button id="fullBtn" type="button">Fullscreen</button>
+      </div>
+      <div id="flash" class="flash" aria-live="polite"></div>
+      <div class="fullbar">
+        <button id="fPhoto" type="button" disabled>📷 Photo</button>
+        <button id="fRec" type="button" disabled>● Record</button>
+        <button id="fGrid" type="button">Grid</button>
+        <button id="fExit" type="button">Exit</button>
       </div>
     </div>
 
@@ -41,6 +62,7 @@
         <button id="photo" class="primary big" type="button" disabled>📷 Photo</button>
         <button id="rec" class="big" type="button" disabled>● Record video</button>
       </div>
+      <button id="ask" type="button" hidden>📣 Ask camera to turn on</button>
       <button id="flip" type="button" disabled>Switch front / rear camera</button>
     </section>
 
