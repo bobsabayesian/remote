@@ -1,7 +1,6 @@
-import { $, api, normCode, fmtCode, fmtDuration, stamp, remember, connect, getIceServers, renderQR, toast } from "./common.js";
+import { $, api, fmtCode, fmtDuration, stamp, remember, connect, getIceServers, toast, sessionCode } from "./common.js";
 
-const code = normCode(location.hash);
-if (!code) location.replace("/");
+const code = sessionCode("camera");
 
 const PART_SIZE = 8 * 1024 * 1024; // R2 multipart: every part but the last must be the same size (>= 5 MiB)
 const MAX_QUEUE = 300;
@@ -43,17 +42,6 @@ document.title = `${project.name} · Camera`;
 $("projName").textContent = project.name;
 $("folder").textContent = project.folder + "/";
 $("code").textContent = fmtCode(code);
-$("host").textContent = location.host;
-const controlUrl = `${location.origin}/control.html#${code}`;
-renderQR($("qr"), controlUrl);
-$("copy").onclick = async () => {
-  try {
-    await navigator.clipboard.writeText(controlUrl);
-    toast("Link copied");
-  } catch {
-    prompt("Copy this link", controlUrl);
-  }
-};
 
 iceServers = await getIceServers(code);
 const chain = { p: Promise.resolve() }; // handle signaling messages one at a time, in order
@@ -96,8 +84,8 @@ async function handle(m) {
       closePeer(m.id);
       renderControllers();
       break;
-    case "answer":
-      await pcs.get(m.from)?.setRemoteDescription(m.sdp);
+    case "offer":
+      await answerOffer(m);
       break;
     case "ice":
       await pcs.get(m.from)?.addIceCandidate(m.candidate).catch(() => {});
@@ -151,29 +139,27 @@ function fail(e) {
   conn.send({ type: "error", message: e.message });
 }
 
-async function greet(id) {
+function greet(id) {
   sendStatus(id);
-  if (stream) await offerTo(id);
 }
 
-// ---- WebRTC live view (camera is always the offerer) ----------------------------
+// ---- WebRTC live view (the controller always makes the offer; the camera only answers) ----
 
 function closePeer(id) {
   pcs.get(id)?.close();
   pcs.delete(id);
 }
 
-async function offerTo(id) {
-  closePeer(id);
+async function answerOffer(m) {
+  if (!stream) return; // the controller re-offers when status says we're streaming
+  closePeer(m.from);
   const pc = new RTCPeerConnection({ iceServers });
-  pcs.set(id, pc);
-  for (const t of stream.getVideoTracks()) pc.addTrack(t, stream);
-  pc.onicecandidate = (e) => e.candidate && conn.send({ type: "ice", to: id, candidate: e.candidate });
-  pc.onconnectionstatechange = () => {
-    if (pc.connectionState === "failed" && pcs.get(id) === pc) offerTo(id).catch(() => {});
-  };
-  await pc.setLocalDescription(await pc.createOffer());
-  conn.send({ type: "offer", to: id, sdp: pc.localDescription });
+  pcs.set(m.from, pc);
+  pc.onicecandidate = (e) => e.candidate && conn.send({ type: "ice", to: m.from, candidate: e.candidate });
+  await pc.setRemoteDescription(m.sdp);
+  for (const t of stream.getVideoTracks()) pc.addTrack(t, stream); // reuses the transceiver from the offer
+  await pc.setLocalDescription(await pc.createAnswer());
+  conn.send({ type: "answer", to: m.from, sdp: pc.localDescription });
 }
 
 // ---- camera stream --------------------------------------------------------
@@ -197,7 +183,11 @@ async function startStream() {
   stream = s;
   wantStream = true;
   s.getVideoTracks()[0].addEventListener("ended", () => {
-    if (stream === s) stream = null;
+    if (stream === s) {
+      stream = null;
+      for (const id of [...pcs.keys()]) closePeer(id);
+      sendStatus();
+    }
     render();
   });
 
@@ -211,7 +201,6 @@ async function startStream() {
     const sender = pc.getSenders().find((x) => x.track?.kind === "video");
     if (sender) await sender.replaceTrack(track);
   }
-  for (const id of controllers) if (!pcs.has(id)) await offerTo(id);
   hideAsk();
   render();
   sendStatus();
@@ -250,7 +239,9 @@ $("start").onclick = toggleCamera;
 let titleFlash = 0;
 function showAsk() {
   $("ask").hidden = false;
-  navigator.vibrate?.([300, 150, 300]);
+  try {
+    navigator.vibrate?.([300, 150, 300]);
+  } catch {}
   try {
     const ctx = new AudioContext();
     const osc = ctx.createOscillator();

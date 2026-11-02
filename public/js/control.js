@@ -1,8 +1,7 @@
 import { zipFiles, saveBlob } from "./zip.js";
-import { $, api, normCode, fmtCode, fmtDuration, fmtBytes, remember, connect, getIceServers, toast } from "./common.js";
+import { $, api, fmtCode, fmtDuration, fmtBytes, remember, connect, getIceServers, toast, renderQR, sessionCode } from "./common.js";
 
-const code = normCode(location.hash);
-if (!code) location.replace("/");
+const code = sessionCode("control");
 
 let project;
 try {
@@ -55,6 +54,8 @@ async function handle(m) {
     case "peer-joined":
       if (m.role === "camera") {
         cameraId = m.id;
+        status = null;
+        closePc();
         render();
       }
       break;
@@ -66,14 +67,16 @@ async function handle(m) {
         render();
       }
       break;
-    case "offer":
-      await answer(m);
+    case "answer":
+      await pc?.setRemoteDescription(m.sdp).catch(() => {});
       break;
     case "ice":
       await pc?.addIceCandidate(m.candidate).catch(() => {});
       break;
     case "status":
       status = m;
+      if (m.streaming) ensureLive();
+      else closePc();
       render();
       break;
     case "renamed":
@@ -107,21 +110,61 @@ function closePc() {
   video.srcObject = null;
 }
 
-async function answer(m) {
-  closePc();
-  const conn_ = new RTCPeerConnection({ iceServers });
-  pc = conn_;
-  conn_.onicecandidate = (e) => e.candidate && conn.send({ type: "ice", to: m.from, candidate: e.candidate });
-  conn_.ontrack = (e) => {
-    video.srcObject = e.streams[0];
-    video.play().catch(() => {});
-    render();
-  };
-  conn_.onconnectionstatechange = () => render();
-  await conn_.setRemoteDescription(m.sdp);
-  await conn_.setLocalDescription(await conn_.createAnswer());
-  conn.send({ type: "answer", to: m.from, sdp: conn_.localDescription });
+let offering = false;
+let pcStarted = 0;
+/** The controller starts every live-view connection; the camera only answers. */
+function ensureLive() {
+  if (!wsOpen || !cameraId || !status?.streaming || offering) return;
+  const stale = pc && (pc.connectionState === "failed" || pc.connectionState === "closed" || (pc.connectionState !== "connected" && Date.now() - pcStarted > 15000));
+  if (pc && !stale) return;
+  offerLive().catch((e) => console.error(e));
 }
+
+async function offerLive() {
+  offering = true;
+  try {
+    closePc();
+    const target = cameraId;
+    const p = (pc = new RTCPeerConnection({ iceServers }));
+    pcStarted = Date.now();
+    p.addTransceiver("video", { direction: "recvonly" });
+    p.onicecandidate = (e) => e.candidate && conn.send({ type: "ice", to: target, candidate: e.candidate });
+    p.ontrack = (e) => {
+      video.srcObject = e.streams[0];
+      video.play().catch(() => {});
+      render();
+    };
+    p.onconnectionstatechange = () => render();
+    await p.setLocalDescription(await p.createOffer());
+    conn.send({ type: "offer", to: target, sdp: p.localDescription });
+  } finally {
+    offering = false;
+  }
+}
+
+// ---- invite for the camera device ------------------------------------------------------
+
+const cameraUrl = `${location.origin}/camera.html#${code}`;
+renderQR($("qr"), cameraUrl);
+$("inviteCode").textContent = fmtCode(code);
+async function copyInvite() {
+  try {
+    await navigator.clipboard.writeText(cameraUrl);
+    toast("Invite link copied");
+  } catch {
+    prompt("Copy this link", cameraUrl);
+  }
+}
+$("copyInvite").onclick = copyInvite;
+if (navigator.share) {
+  $("shareInvite").onclick = () =>
+    navigator
+      .share({ title: "Camera invite", text: `Open this on the device you want to use as the camera (session ${fmtCode(code)}):`, url: cameraUrl })
+      .catch(() => {});
+} else {
+  $("shareInvite").hidden = true;
+}
+let inviteAutoClosed = false;
 
 // ---- commands ----------------------------------------------------------------
 
@@ -267,6 +310,10 @@ $("renameForm").onsubmit = async (e) => {
 
 function render() {
   const camOnline = !!cameraId;
+  if (camOnline && !inviteAutoClosed) {
+    inviteAutoClosed = true;
+    $("invite").open = false; // camera device is here; the invite stays one tap away
+  }
   const streaming = !!status?.streaming;
   const ready = wsOpen && camOnline && streaming;
   $("camPill").className = "pill" + (streaming ? " on" : camOnline ? " warn" : "");
@@ -305,7 +352,10 @@ function render() {
   $("sPending").textContent = status?.pending ?? 0;
   $("sSaved").textContent = status?.saved ?? 0;
 }
-setInterval(() => wsOpen && !status && cameraId && send({ type: "get-status" }), 3000);
+setInterval(() => {
+  if (wsOpen && !status && cameraId) send({ type: "get-status" });
+  ensureLive();
+}, 4000);
 
 // ---- tabs & file gallery ----------------------------------------------------------
 

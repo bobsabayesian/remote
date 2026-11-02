@@ -36,6 +36,22 @@
   </div>
 
   <div id="live" class="field" style="gap:14px">
+    <details id="invite" class="card" open>
+      <summary><b>Invite the camera device</b> <span class="muted small">link · QR · code</span></summary>
+      <div class="join" style="margin-top:14px">
+        <div id="qr" class="qr" role="img" aria-label="QR code that opens the camera page"></div>
+        <div class="field">
+          <span class="label">Session code</span>
+          <span id="inviteCode" class="code"></span>
+          <div class="row">
+            <button id="shareInvite" class="primary" type="button">Share invite</button>
+            <button id="copyInvite" type="button">Copy link</button>
+          </div>
+          <p class="muted small">Send the link to whoever has the camera, or scan the QR from the camera device. Once it opens there, they tap “Start camera”. If they already have the page open, use “Ask camera to turn on” below.</p>
+        </div>
+      </div>
+    </details>
+
     <div class="video" id="stage">
       <video id="remote" playsinline muted autoplay></video>
       <div id="grid" class="grid" hidden></div>
@@ -113,6 +129,7 @@
   </div>
 </dialog>
 
+<script src="/vendor/qrcode.js"></script>
 <script type="module" src="/js/control.js"></script>
 </body>
 </html>

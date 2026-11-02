@@ -27,15 +27,7 @@
   <section class="card">
     <h1 id="projName">Camera</h1>
     <p class="muted small">Saving to <code id="folder">remote/…</code> in project-files. Files are deleted 7 days after they're saved.</p>
-    <div class="join" style="margin-top:14px">
-      <div id="qr" class="qr" role="img" aria-label="QR code to open the remote control"></div>
-      <div class="field">
-        <span class="label">Session code</span>
-        <span id="code" class="code"></span>
-        <button id="copy" type="button">Copy control link</button>
-        <p class="muted small">On your phone, scan the QR code or enter the code at <b id="host"></b>.</p>
-      </div>
-    </div>
+    <p class="muted small" style="margin-top:10px">Joined session <b id="code"></b>. Keep this page open; the remote operator controls the camera from here on.</p>
   </section>
 
   <section class="card field">
@@ -74,7 +66,6 @@
   </section>
 </main>
 
-<script src="/vendor/qrcode.js"></script>
 <script type="module" src="/js/camera.js"></script>
 </body>
 </html>

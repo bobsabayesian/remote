@@ -11,21 +11,21 @@
 <main>
   <header style="padding-top:12px">
     <h1>Remote Camera</h1>
-    <p class="muted">Turn any device into a camera, then run it from your phone. Photos, video and timelapse save straight to your project folder.</p>
+    <p class="muted">Control a camera from anywhere. Start a session on your phone, send the invite to whoever has the camera, and take photos, video or timelapse. Everything saves to your project folder.</p>
   </header>
 
   <section class="card">
-    <h2>1. On the device that will be the camera</h2>
+    <h2>Start a session (remote operator)</h2>
     <form id="newForm" class="field">
-      <p class="muted small">You'll get a session code and QR code. Name the project later from the remote control.</p>
-      <button class="primary big" type="submit">Set up camera</button>
+      <p class="muted small">You'll get an invite link, QR code and session code for the camera device. You can name the project before anything is saved.</p>
+      <button class="primary big" type="submit">Start new session</button>
       <p id="newErr" class="error" role="alert"></p>
     </form>
   </section>
 
   <section class="card">
-    <h2>2. On the device you'll control from</h2>
-    <p class="muted small" style="margin-bottom:10px">Scan the QR code shown on the camera, or enter the session code. Also use this to come back to an older project.</p>
+    <h2>Join or resume a session</h2>
+    <p class="muted small" style="margin-bottom:10px">Have an invite code, or coming back to an earlier project? Enter the code. (Invite links open the right page directly.)</p>
     <form id="joinForm" class="field">
       <label class="label" for="code">Session code</label>
       <input id="code" type="text" maxlength="12" placeholder="ABCD-EFGH" autocomplete="off" autocapitalize="characters" spellcheck="false">
@@ -58,7 +58,7 @@ $("newForm").addEventListener("submit", async (e) => {
       body: "{}",
     });
     remember(p);
-    location.href = `/camera.html#${p.code}`;
+    location.href = `/control.html#${p.code}`;
   } catch (err) {
     $("newErr").textContent = err.message;
     btn.disabled = false;

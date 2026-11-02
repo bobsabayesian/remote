@@ -121,3 +121,26 @@ export function toast(msg, kind = "") {
   box.append(t);
   setTimeout(() => t.remove(), 3500);
 }
+
+/**
+ * Session code for this page: the URL hash, else the last one used in this role on this device
+ * (iOS can drop the hash when a tab is discarded). Never silently starts a new session.
+ */
+export function sessionCode(role) {
+  const key = `remote.session.${role}`;
+  let code = normCode(location.hash);
+  if (!code) {
+    try {
+      code = normCode(localStorage.getItem(key) || "");
+    } catch {}
+    if (code) history.replaceState(null, "", `#${code}`);
+  }
+  if (!code) {
+    location.replace("/");
+    throw new Error("No session code");
+  }
+  try {
+    localStorage.setItem(key, code);
+  } catch {}
+  return code;
+}

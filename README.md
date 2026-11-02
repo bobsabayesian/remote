@@ -1,6 +1,6 @@
 # remote
 
-Turn any device (an iPad, say) into a remote-controlled camera. Open the site on the camera device, set up a project, then scan the QR code from your phone to take photos, record video, or run a timelapse. Everything is captured at full resolution on the camera device and uploaded to R2: `project-files/remote/<project-name>/`.
+Turn any device (an iPad, say) into a remote-controlled camera. The remote operator starts a session on their phone and sends the invite link (or shows the QR code) to the camera device, then takes photos, records video or runs a timelapse. The operator initiates everything: the session, the invite, and the live-view connection. The camera device just opens the link and taps Start. Everything is captured at full resolution on the camera device and uploaded to R2: `project-files/remote/<project-name>/`.
 
 Cloudflare Worker + Durable Object (one per session code, relays WebRTC signaling and commands) + R2 + static assets. No build step.
 
@@ -31,8 +31,8 @@ The Files tab downloads single files, a whole timelapse as a zip, or the entire 
 
 ## How it works
 
-- **Session code**: 8 characters (`ABCD-EFGH`), the only credential. Anyone with it can view the camera and the files, so treat it like a password. Rejoin any time from the home page, using the code.
-- **Folder**: `remote/<slug-of-project-name>/`, or `remote/<session-code>/` if no name was given. Names must be unique; the code lets you return to an existing project.
+- **Session code**: 8 characters (`ABCD-EFGH`), the only credential. Anyone with it can view the camera and the files, so treat it like a password. Rejoin any time from the home page, using the code. Both pages remember the last session on the device, so a reload or a tab discarded by iOS resumes the same session instead of starting a new one.
+- **Folder**: starts as `remote/<session-code>/`. The operator can rename the project until the first photo/video is saved; the folder follows the name (names must be unique). After that it's locked.
 - **Photos**: `photo-<timestamp>.jpg`. **Video**: `video-<timestamp>.mp4` (`.webm` on Chromium), streamed to R2 as multipart in 8 MB parts while recording. **Timelapse**: `timelapse-<timestamp>/frame-000001.jpg`, ...
 - Failed uploads retry with backoff, so a Wi-Fi drop doesn't lose frames (up to 300 queued in memory).
 - A video only appears in R2 once recording stops and the upload completes; if the camera page is closed mid-recording the partial upload is discarded by R2.
